@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# 외부 clone 코드 (editable install 대상)
+**/repo/
+
+# 데이터/결과물
+**/inputs/*
+!**/inputs/.gitkeep
+**/outputs/*
+!**/outputs/.gitkeep
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Gradio cache
+.gradio/
+
+# Gradio workspace
+**/workspace/
+
+# Scanned documents
+Scanned_*.jpg
