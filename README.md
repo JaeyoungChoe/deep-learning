@@ -8,8 +8,6 @@
 | 2 | **OWLv2** (Google) | 제로샷 객체 탐지 (Zero-Shot Object Detection) |
 | 3 | **Grounding DINO + SAM** (IDEA-Research + Meta) | 텍스트 기반 세그멘테이션 (Text-Prompted Segmentation) |
 
-![결과 요약](foundation_models_summary.jpg)
-
 ---
 
 ## 프로젝트 구조
@@ -19,13 +17,6 @@ deep-learning/
 ├── README.md
 ├── foundation_models_demo.ipynb      # 세 모델 통합 데모 노트북
 ├── depth_anything_3d_demo.ipynb      # DA3 3D 포인트 클라우드 데모 노트북
-├── foundation_models_summary.jpg     # 결과 요약 이미지
-├── depth_anything_video.gif          # 깊이 추정 결과 예시
-├── xai506_example_image.jpg          # 입력 예시 이미지
-├── examples/                         # 결과 예시 이미지
-│   ├── owlv2_detection.jpg
-│   ├── grounded_sam_segmentation.jpg
-│   └── sam_auto_segmentation.jpg
 ├── depth_anything/
 │   ├── README.md                     # DA3 상세 설치/실행 가이드
 │   ├── repo/                         # depth-anything-3 git clone (설치 필요)
@@ -119,10 +110,6 @@ cd depth_anything
 python scripts/render_gif.py outputs/<video>_final
 ```
 
-**결과 예시:**
-
-![Depth Anything 3 결과](depth_anything_video.gif)
-
 > 첫 실행 시 HuggingFace Hub에서 모델 가중치를 자동 다운로드합니다 (수 GB).
 
 ---
@@ -154,10 +141,6 @@ python scripts/detect_video.py inputs/sample.mp4 "person, car" --fps 5
 #   --threshold 0.3    confidence 임계값 (기본 0.3)
 #   --model base|large 모델 크기 선택
 ```
-
-**결과 예시:**
-
-![OWLv2 탐지 결과](examples/owlv2_detection.jpg)
 
 ---
 
@@ -191,12 +174,6 @@ python scripts/auto_segment.py inputs/sample.jpg
 #   --sam-model sam-base|sam-large|sam-huge|sam2  SAM 모델 선택
 #   --threshold 0.3           confidence 임계값
 ```
-
-**결과 예시:**
-
-| Grounded-SAM (텍스트 프롬프트) | SAM Auto (자동 세그멘테이션) |
-|:---:|:---:|
-| ![Grounded-SAM](examples/grounded_sam_segmentation.jpg) | ![SAM Auto](examples/sam_auto_segmentation.jpg) |
 
 ---
 
