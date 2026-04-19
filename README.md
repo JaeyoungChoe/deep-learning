@@ -1,229 +1,96 @@
 # XAI506 중간 프로젝트 - Vision Foundation Models
 
-세 가지 Vision Foundation Model을 활용한 데모 프로젝트입니다.
+Vision foundation model 세 가지 (Depth Anything 3, OWLv2, Grounding DINO + SAM) 를 하나의 입력에 순차적으로 적용해보는 데모 프로젝트입니다.
 
-| # | Model | Task |
-|---|-------|------|
-| 1 | **Depth Anything 3** (ByteDance) | 단안 깊이 추정 (Monocular Depth Estimation) |
-| 2 | **OWLv2** (Google) | 제로샷 객체 탐지 (Zero-Shot Object Detection) |
-| 3 | **Grounding DINO + SAM** (IDEA-Research + Meta) | 텍스트 기반 세그멘테이션 (Text-Prompted Segmentation) |
+## 어떤 걸 실행하면 되나요?
 
----
+프로젝트의 메인은 두 개의 notebook 입니다. 아래 설치만 마치면 그대로 셀을 위에서부터 실행하면 됩니다. 두 notebook 모두 실행 결과가 이미 저장되어 있어서, 굳이 돌려보지 않아도 어떤 출력이 나오는지 확인할 수 있습니다.
 
-## 프로젝트 구조
+### `foundation_models_demo.ipynb` (메인)
 
-```
-deep-learning/
-├── README.md
-├── foundation_models_demo.ipynb      # 세 모델 통합 데모 노트북
-├── depth_anything_3d_demo.ipynb      # DA3 3D 포인트 클라우드 데모 노트북
-├── depth_anything/
-│   ├── README.md                     # DA3 상세 설치/실행 가이드
-│   ├── repo/                         # depth-anything-3 git clone (설치 필요)
-│   ├── inputs/                       # 입력 영상
-│   ├── outputs/                      # 결과 출력
-│   └── scripts/
-│       ├── run_video.sh              # DA3 CLI wrapper
-│       └── render_gif.py             # 3D 포인트 클라우드 GIF 렌더러
-└── detection/
-    ├── inputs/                       # 입력 이미지
-    ├── outputs/                      # 결과 출력
-    └── scripts/
-        ├── detect.py                 # OWLv2 이미지 탐지
-        ├── detect_video.py           # OWLv2 영상 탐지
-        ├── grounded_sam.py           # Grounding DINO + SAM 세그멘테이션
-        └── auto_segment.py           # SAM 자동 세그멘테이션
-```
+이미지 또는 영상 한 장을 입력으로 받아서 세 모델을 순차적으로 돌려보는 통합 데모. 상단의 `INPUT_PATH` 변수만 원하는 파일로 바꿔주세요.
 
----
+### `depth_anything_3d_demo.ipynb`
 
-## 환경 설치 (Installation)
+영상에서 depth map GIF 와 3D point cloud 회전 GIF 를 생성하는 데모. DA3 의 3D 기능만 따로 보고 싶을 때 사용합니다.
 
-### 요구사항
-- **GPU**: CUDA 지원 GPU (VRAM 8GB 이상 권장)
-- **Python**: 3.10
-- **OS**: Linux (Ubuntu 22.04 테스트됨)
+## 설치
 
-### 1. Conda 환경 생성
+CUDA GPU 필요 (VRAM 8GB 이상 권장).
 
 ```bash
 conda create -y -n deep-learning python=3.10
 conda activate deep-learning
-```
 
-### 2. PyTorch 및 공통 패키지 설치
-
-```bash
-# PyTorch (CUDA 버전에 맞게 설치)
 pip install "torch>=2" torchvision xformers
-
-# 공통 의존 패키지
 pip install transformers pillow scipy imageio opencv-python matplotlib numpy trimesh huggingface_hub
-```
 
-### 3. Depth Anything 3 설치
-
-```bash
+# Depth Anything 3 는 source install 이 필요합니다
 cd depth_anything
 git clone https://github.com/ByteDance-Seed/depth-anything-3.git repo
-cd repo
-pip install -e ".[app]"
-cd ../..
+cd repo && pip install -e ".[app]"
 ```
 
-> 자세한 내용은 [depth_anything/README.md](depth_anything/README.md) 참고
+## 사용한 모델들
 
-### 4. 설치 확인
+### 1. Depth Anything 3 (ByteDance)
+
+영상이나 이미지에서 픽셀별 깊이를 추정하고, 그 결과로 3D point cloud 까지 복원하는 모델.
+
+- 기본: [`depth-anything/DA3-LARGE-1.1`](https://huggingface.co/depth-anything/DA3-LARGE-1.1) — 0.35B, VRAM 8GB 이상
+- 가벼운 버전: [`depth-anything/DA3-BASE`](https://huggingface.co/depth-anything/DA3-BASE) — ~0.1B, VRAM 6GB 정도면 돌아감
+
+VRAM 이 부족하면 notebook 상단의 `MODEL_ID` 변수를 `depth-anything/DA3-BASE` 로 바꿔주세요. CLI 로 쓸 때는 아래처럼 `MODEL` 환경변수로 지정할 수 있습니다.
 
 ```bash
-conda activate deep-learning
-python -c "import torch; print('CUDA:', torch.cuda.is_available())"
-python -c "from transformers import Owlv2Processor; print('OWLv2 OK')"
-da3 --help
+MODEL=depth-anything/DA3-BASE ./depth_anything/scripts/run_video.sh inputs/video.mp4
 ```
 
----
+### 2. OWLv2 (Google)
 
-## 코드 설명
+"monitor", "사람" 같은 자유로운 텍스트 쿼리로 객체를 탐지하는 zero-shot detector. 사전 정의된 카테고리에 얽매이지 않습니다.
 
-### 1. Depth Anything 3 - 단안 깊이 추정
+- [`google/owlv2-base-patch16-ensemble`](https://huggingface.co/google/owlv2-base-patch16-ensemble) (기본)
+- [`google/owlv2-large-patch14-ensemble`](https://huggingface.co/google/owlv2-large-patch14-ensemble) (large)
 
-**모델:** `depth-anything/DA3-LARGE-1.1` (0.35B params, ByteDance-Seed)
+### 3. Grounding DINO + SAM (IDEA-Research + Meta)
 
-입력 영상에서 프레임별 깊이(depth) 맵을 추정하고, 3D 포인트 클라우드를 생성합니다.
+텍스트 → bounding box → 픽셀 단위 마스크까지 이어지는 segmentation pipeline.
 
-| 항목 | 설명 |
-|------|------|
-| **입력** | 영상 파일 (.mp4) |
-| **출력** | 깊이 맵 시각화, 3D 포인트 클라우드 (.glb), GIF 애니메이션 |
-| **스크립트** | `depth_anything/scripts/run_video.sh`, `depth_anything/scripts/render_gif.py` |
+- Grounding DINO: [`IDEA-Research/grounding-dino-tiny`](https://huggingface.co/IDEA-Research/grounding-dino-tiny) — 텍스트에서 박스를 뽑음
+- SAM: [`facebook/sam-vit-base`](https://huggingface.co/facebook/sam-vit-base) — 박스를 정밀한 마스크로 변환
 
-**실행 방법:**
+프롬프트 없이 이미지의 모든 객체를 자동으로 세그먼트하는 SAM auto-mask 모드도 함께 제공됩니다.
 
-```bash
-cd depth_anything
+## CLI 스크립트 (선택)
 
-# 영상에서 깊이 추정 실행
-./scripts/run_video.sh inputs/<video>.mp4
-
-# 3D 포인트 클라우드 GIF 렌더링
-python scripts/render_gif.py outputs/<video>_final
-```
-
-> 첫 실행 시 HuggingFace Hub에서 모델 가중치를 자동 다운로드합니다 (수 GB).
-
----
-
-### 2. OWLv2 - 제로샷 객체 탐지
-
-**모델:** `google/owlv2-base-patch16-ensemble` (CLIP 기반, Google)
-
-텍스트 쿼리만으로 이미지에서 객체를 탐지합니다. 사전 학습된 카테고리 없이 자유로운 텍스트 프롬프트를 사용할 수 있습니다.
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | 이미지 파일 + 텍스트 쿼리 (쉼표 구분) |
-| **출력** | 바운딩 박스와 confidence score가 표시된 이미지 |
-| **스크립트** | `detection/scripts/detect.py`, `detection/scripts/detect_video.py` |
-
-**실행 방법:**
+Notebook 없이 한 번만 돌려보고 싶을 때 사용하세요.
 
 ```bash
-cd detection
-
-# 이미지 탐지
-python scripts/detect.py inputs/sample.jpg "monitor, keyboard, mouse"
-
-# 영상 탐지
-python scripts/detect_video.py inputs/sample.mp4 "person, car" --fps 5
-
-# 옵션
-#   --threshold 0.3    confidence 임계값 (기본 0.3)
-#   --model base|large 모델 크기 선택
-```
-
----
-
-### 3. Grounding DINO + SAM - 텍스트 기반 세그멘테이션
-
-**모델:**
-- **Grounding DINO** (`IDEA-Research/grounding-dino-tiny`) — 텍스트 → 바운딩 박스
-- **SAM** (`facebook/sam-vit-base`) — 바운딩 박스 → 세그멘테이션 마스크
-
-두 모델을 파이프라인으로 연결하여, 텍스트 프롬프트로 지정한 객체의 정밀한 세그멘테이션 마스크를 생성합니다.
-
-| 항목 | 설명 |
-|------|------|
-| **입력** | 이미지 파일 + 텍스트 쿼리 (마침표 구분) |
-| **출력** | 컬러 세그멘테이션 마스크가 오버레이된 이미지 |
-| **스크립트** | `detection/scripts/grounded_sam.py`, `detection/scripts/auto_segment.py` |
-
-**실행 방법:**
-
-```bash
-cd detection
+# 객체 탐지
+python detection/scripts/detect.py <image> "monitor, keyboard, mouse"
 
 # 텍스트 기반 세그멘테이션
-python scripts/grounded_sam.py inputs/sample.jpg "monitor. keyboard. chair."
+python detection/scripts/grounded_sam.py <image> "monitor. keyboard. chair."
 
-# 프롬프트 없는 자동 세그멘테이션 (SAM Auto)
-python scripts/auto_segment.py inputs/sample.jpg
+# 자동 세그멘테이션 (프롬프트 X)
+python detection/scripts/auto_segment.py <image>
 
-# 옵션
-#   --dino-model tiny|base    Grounding DINO 모델 크기
-#   --sam-model sam-base|sam-large|sam-huge|sam2  SAM 모델 선택
-#   --threshold 0.3           confidence 임계값
+# 영상 depth + 3D point cloud
+./depth_anything/scripts/run_video.sh <video.mp4>
 ```
 
----
-
-## 노트북 (Notebooks)
-
-| 노트북 | 설명 |
-|--------|------|
-| `foundation_models_demo.ipynb` | 세 가지 모델을 순차적으로 실행하는 **통합 데모**. 이미지/영상 입력 → 깊이 추정 → 객체 탐지 → 세그멘테이션 |
-| `depth_anything_3d_demo.ipynb` | Depth Anything 3의 **3D 포인트 클라우드 생성** 데모. 카메라 파라미터를 이용한 역투영(back-projection) |
-
-> 노트북에는 실행 결과(출력 이미지)가 포함되어 있어 실행 없이도 결과를 확인할 수 있습니다.
+각 스크립트 상단 docstring 에 더 자세한 옵션 설명이 있습니다.
 
 ---
 
-## 참고사항
+## English
 
-- GPU (CUDA) 환경이 필수입니다.
-- 최초 실행 시 HuggingFace Hub에서 모델 가중치가 자동 다운로드됩니다.
-- 필요 VRAM: DA3-LARGE 기준 8GB 이상 권장
-- `depth_anything/repo/` 디렉토리는 별도 `git clone`이 필요합니다 (설치 가이드 참조).
+Three vision foundation models wired into a single demo. Start with **`foundation_models_demo.ipynb`** — run the cells top to bottom, and change `INPUT_PATH` near the top to point at your image/video. For 3D point cloud generation specifically, use **`depth_anything_3d_demo.ipynb`**.
 
----
+Models used:
+- **Depth Anything 3** — monocular depth estimation: [DA3-LARGE-1.1](https://huggingface.co/depth-anything/DA3-LARGE-1.1) (default) or [DA3-BASE](https://huggingface.co/depth-anything/DA3-BASE) for lower VRAM.
+- **OWLv2** — zero-shot object detection: [owlv2-base-patch16-ensemble](https://huggingface.co/google/owlv2-base-patch16-ensemble).
+- **Grounding DINO + SAM** — text-prompted segmentation: [grounding-dino-tiny](https://huggingface.co/IDEA-Research/grounding-dino-tiny) + [sam-vit-base](https://huggingface.co/facebook/sam-vit-base).
 
-## English Summary
-
-This project demonstrates three **Vision Foundation Models** for the XAI506 midterm:
-
-1. **Depth Anything 3** (ByteDance-Seed) — Monocular depth estimation from video. Generates per-frame depth maps and 3D point clouds.
-2. **OWLv2** (Google) — Zero-shot object detection using free-form text queries. No predefined categories needed.
-3. **Grounding DINO + SAM** (IDEA-Research + Meta) — Text-prompted semantic segmentation. Combines text-to-box detection with pixel-level mask generation.
-
-### Quick Start
-
-```bash
-# 1. Create conda environment
-conda create -y -n deep-learning python=3.10 && conda activate deep-learning
-
-# 2. Install dependencies
-pip install "torch>=2" torchvision xformers
-pip install transformers pillow scipy imageio opencv-python matplotlib numpy trimesh huggingface_hub
-
-# 3. Install Depth Anything 3
-cd depth_anything && git clone https://github.com/ByteDance-Seed/depth-anything-3.git repo
-cd repo && pip install -e ".[app]" && cd ../..
-
-# 4. Run examples
-cd detection
-python scripts/detect.py inputs/sample.jpg "monitor, keyboard, mouse"
-python scripts/grounded_sam.py inputs/sample.jpg "monitor. keyboard. chair."
-python scripts/auto_segment.py inputs/sample.jpg
-```
-
-Refer to each section above for detailed input/output descriptions and example results.
+A CUDA GPU is required. See the 설치 section above for the full install command.
